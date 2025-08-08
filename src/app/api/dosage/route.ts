@@ -1,69 +1,74 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { drugDatabase, medicalSystems } from '@/lib/comprehensive-drug-database'
+import { extendedDrugDatabase } from '@/lib/extended-drug-database'
+
+// Combine all drug databases
+const allDrugs = [...drugDatabase, ...extendedDrugDatabase]
 
 interface DrugInfo {
+  id: string
   name: string
-  dosePerKg: number
-  maxDailyDose: number
-  frequency: string
-  maxSingleDose: number
-  unit: string
-}
-
-const drugDatabase: Record<string, DrugInfo> = {
-  acetaminophen: {
-    name: "Acetaminophen (Paracetamol)",
-    dosePerKg: 15,
-    maxDailyDose: 90,
-    frequency: "every 4-6 hours",
-    maxSingleDose: 1000,
-    unit: "mg"
-  },
-  ibuprofen: {
-    name: "Ibuprofen",
-    dosePerKg: 10,
-    maxDailyDose: 40,
-    frequency: "every 6-8 hours",
-    maxSingleDose: 800,
-    unit: "mg"
-  },
-  amoxicillin: {
-    name: "Amoxicillin",
-    dosePerKg: 45,
-    maxDailyDose: 3000,
-    frequency: "twice daily",
-    maxSingleDose: 1000,
-    unit: "mg"
-  },
-  prednisolone: {
-    name: "Prednisolone",
-    dosePerKg: 1,
-    maxDailyDose: 60,
-    frequency: "once daily",
-    maxSingleDose: 60,
-    unit: "mg"
-  },
-  salbutamol: {
-    name: "Salbutamol",
-    dosePerKg: 0.15,
-    maxDailyDose: 32,
-    frequency: "every 4-6 hours",
-    maxSingleDose: 8,
-    unit: "mg"
-  },
-  loratadine: {
-    name: "Loratadine",
-    dosePerKg: 0.2,
-    maxDailyDose: 10,
-    frequency: "once daily",
-    maxSingleDose: 10,
-    unit: "mg"
+  genericName: string
+  system: string
+  category: string
+  indications: string[]
+  contraindications: string[]
+  warnings: string[]
+  adverseEffects: string[]
+  interactions: string[]
+  monitoring: string[]
+  pregnancyCategory: string
+  breastfeeding: string
+  pediatricUse: string
+  dosage: {
+    neonatal: {
+      dose: string
+      frequency: string
+      maxDose: string
+      notes: string
+    }
+    infant: {
+      dose: string
+      frequency: string
+      maxDose: string
+      notes: string
+    }
+    child: {
+      dose: string
+      frequency: string
+      maxDose: string
+      notes: string
+    }
+    adolescent: {
+      dose: string
+      frequency: string
+      maxDose: string
+      notes: string
+    }
   }
+  administration: {
+    route: string[]
+    formulation: string[]
+    storage: string
+    stability: string
+  }
+  renalAdjustment: {
+    adjustment: string
+    monitoring: string
+  }
+  hepaticAdjustment: {
+    adjustment: string
+    monitoring: string
+  }
+  references: string[]
+  nelsonPage: string
+  evidenceLevel: string
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { age, weight, drugName } = body
+    const { age, weight, drugName, ageGroup } = body
 
     // Validate required fields
     if (!age || !weight || !drugName) {
@@ -85,7 +90,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if drug exists in database
-    const drug = drugDatabase[drugName]
+    const drug = allDrugs.find(d => d.id === drugName || d.name.toLowerCase().includes(drugName.toLowerCase()))
     if (!drug) {
       return NextResponse.json(
         { error: 'Drug not found in database' },
@@ -93,22 +98,91 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Calculate doses
-    const singleDose = Math.min(drug.dosePerKg * weightNum, drug.maxSingleDose)
-    const dailyDose = Math.min(drug.maxDailyDose * weightNum, drug.maxSingleDose * 4)
+    // Determine age group for dosage calculation
+    let selectedDosage
+    if (ageNum <= 0.083) { // ≤ 1 month
+      selectedDosage = drug.dosage.neonatal
+    } else if (ageNum <= 1) { // > 1 month to 1 year
+      selectedDosage = drug.dosage.infant
+    } else if (ageNum <= 12) { // > 1 year to 12 years
+      selectedDosage = drug.dosage.child
+    } else { // > 12 years
+      selectedDosage = drug.dosage.adolescent
+    }
+
+    // Parse dosage information
+    const doseRange = selectedDosage.dose.match(/(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)/)
+    let minDose, maxDose
+
+    if (doseRange) {
+      minDose = parseFloat(doseRange[1])
+      maxDose = parseFloat(doseRange[2])
+    } else {
+      // Single dose value
+      const singleDose = selectedDosage.dose.match(/(\d+(?:\.\d+)?)/)
+      if (singleDose) {
+        minDose = maxDose = parseFloat(singleDose[1])
+      } else {
+        // Handle complex dosing (e.g., "10-15 mg/kg")
+        return NextResponse.json({
+          success: true,
+          data: {
+            drug: drug.name,
+            dosageInfo: selectedDosage,
+            patientWeight: weightNum,
+            patientAge: ageNum,
+            ageGroup: ageGroup || 'auto',
+            calculationType: 'complex',
+            notes: 'Complex dosing requires clinical judgment',
+            calculationTimestamp: new Date().toISOString()
+          }
+        })
+      }
+    }
+
+    // Calculate doses based on weight
+    const calculatedMinDose = minDose * weightNum
+    const calculatedMaxDose = maxDose * weightNum
+
+    // Parse max dose constraints
+    const maxDoseConstraint = selectedDosage.maxDose.match(/(\d+(?:\.\d+)?)/)
+    let maxConstraint = null
+    if (maxDoseConstraint) {
+      maxConstraint = parseFloat(maxDoseConstraint[1])
+    }
+
+    // Apply constraints
+    const finalMinDose = maxConstraint ? Math.min(calculatedMinDose, maxConstraint) : calculatedMinDose
+    const finalMaxDose = maxConstraint ? Math.min(calculatedMaxDose, maxConstraint) : calculatedMaxDose
 
     // Return calculation results
     return NextResponse.json({
       success: true,
       data: {
         drug: drug.name,
-        singleDose: parseFloat(singleDose.toFixed(1)),
-        dailyDose: parseFloat(dailyDose.toFixed(1)),
-        frequency: drug.frequency,
-        dosePerKg: drug.dosePerKg,
-        unit: drug.unit,
+        genericName: drug.genericName,
+        system: drug.system,
+        category: drug.category,
+        dosageRange: {
+          min: finalMinDose.toFixed(2),
+          max: finalMaxDose.toFixed(2),
+          unit: extractUnit(selectedDosage.dose)
+        },
+        frequency: selectedDosage.frequency,
+        maxDailyDose: selectedDosage.maxDose,
+        notes: selectedDosage.notes,
         patientWeight: weightNum,
         patientAge: ageNum,
+        ageGroup: ageGroup || 'auto',
+        indications: drug.indications,
+        contraindications: drug.contraindications,
+        warnings: drug.warnings,
+        monitoring: drug.monitoring,
+        renalAdjustment: drug.renalAdjustment,
+        hepaticAdjustment: drug.hepaticAdjustment,
+        references: drug.references,
+        nelsonPage: drug.nelsonPage,
+        evidenceLevel: drug.evidenceLevel,
         calculationTimestamp: new Date().toISOString()
       }
     })
@@ -123,15 +197,32 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET() {
-  // Return available drugs list
+  // Return available drugs list organized by system
+  const drugsBySystem = medicalSystems.map(system => ({
+    system: system,
+    drugs: allDrugs
+      .filter(drug => drug.system === system.id)
+      .map(drug => ({
+        id: drug.id,
+        name: drug.name,
+        genericName: drug.genericName,
+        category: drug.category
+      }))
+  }))
+
   return NextResponse.json({
     success: true,
     data: {
-      drugs: Object.keys(drugDatabase).map(key => ({
-        key,
-        name: drugDatabase[key].name
-      })),
-      indications: ['fever', 'pain', 'infection', 'inflammation', 'allergy']
+      medicalSystems: medicalSystems,
+      drugsBySystem: drugsBySystem,
+      totalDrugs: allDrugs.length,
+      indications: ['fever', 'pain', 'infection', 'inflammation', 'allergy', 'seizures', 'hypertension', 'asthma', 'diabetes', 'more']
     }
   })
+}
+
+// Helper function to extract unit from dose string
+function extractUnit(doseString: string): string {
+  const unitMatch = doseString.match(/([a-zA-Z\/]+)/)
+  return unitMatch ? unitMatch[1] : 'mg'
 }
