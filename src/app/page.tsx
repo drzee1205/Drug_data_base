@@ -12,6 +12,8 @@ import { toast } from 'sonner'
 import PWAInstallPrompt from '@/components/pwa-install-prompt'
 import OfflineIndicator from '@/components/offline-indicator'
 import { medicalSystems } from '@/lib/comprehensive-drug-database'
+import FavoritesPanel from '@/components/favorites-panel'
+import { addToFavorites, isInFavorites, removeFromFavorites, addToRecentCalculations } from '@/lib/favorites-system'
 
 interface DrugOption {
   id: string
@@ -67,6 +69,7 @@ export default function PediaDoseCalculator() {
   const [drugsBySystem, setDrugsBySystem] = useState<any[]>([])
   const [loading, setLoading] = useState<boolean>(true)
   const [showResults, setShowResults] = useState<boolean>(false)
+  const [showFavorites, setShowFavorites] = useState<boolean>(false)
 
   useEffect(() => {
     // Fetch available drugs from API
@@ -115,6 +118,33 @@ export default function PediaDoseCalculator() {
     }
   }
 
+  const handleSelectDrug = (drugId: string) => {
+    setDrugName(drugId)
+    const drug = availableDrugs.find(d => d.id === drugId)
+    if (drug) {
+      toast.success(`Selected ${drug.name}`)
+    }
+  }
+
+  const toggleFavorite = (drugId: string) => {
+    const drug = availableDrugs.find(d => d.id === drugId)
+    if (!drug) return
+
+    if (isInFavorites(drugId)) {
+      removeFromFavorites(drugId)
+      toast.success(`Removed ${drug.name} from favorites`)
+    } else {
+      addToFavorites({
+        id: drug.id,
+        name: drug.name,
+        genericName: drug.genericName,
+        system: drug.system,
+        category: drug.category
+      })
+      toast.success(`Added ${drug.name} to favorites`)
+    }
+  }
+
   const calculateDose = async () => {
     if (!age || !weight || !drugName) {
       toast.error('Please fill in all required fields')
@@ -152,6 +182,20 @@ export default function PediaDoseCalculator() {
       const data = result.data
       setResults(data)
       setShowResults(true)
+      
+      // Add to recent calculations
+      addToRecentCalculations({
+        drug: data.drug,
+        genericName: data.genericName,
+        system: data.system,
+        category: data.category,
+        patientWeight: data.patientWeight,
+        patientAge: data.patientAge,
+        ageGroup: data.ageGroup,
+        dosageRange: data.dosageRange,
+        frequency: data.frequency
+      })
+      
       toast.success('Dosage calculated successfully')
     } catch (error) {
       console.error('API call error:', error)
@@ -299,39 +343,41 @@ export default function PediaDoseCalculator() {
           </CardContent>
         </Card>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          {/* Patient Information Card */}
-          <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-white">
-                <span className="text-2xl">👶</span>
-                Patient Information
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="age" className="text-slate-300">Age</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="age"
-                    type="number"
-                    placeholder="Enter age"
-                    value={age}
-                    onChange={(e) => setAge(e.target.value)}
-                    className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400"
-                  />
-                  <Select value={ageUnit} onValueChange={setAgeUnit}>
-                    <SelectTrigger className="w-32 bg-slate-700/50 border-slate-600 text-white">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="years">Years</SelectItem>
-                      <SelectItem value="months">Months</SelectItem>
-                      <SelectItem value="days">Days</SelectItem>
-                    </SelectContent>
-                  </Select>
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
+          <div className="xl:col-span-2 space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Patient Information Card */}
+              <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-white">
+                    <span className="text-2xl">👶</span>
+                    Patient Information
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label htmlFor="age" className="text-slate-300">Age</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="age"
+                        type="number"
+                        placeholder="Enter age"
+                        value={age}
+                        onChange={(e) => setAge(e.target.value)}
+                        className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400"
+                      />
+                      <Select value={ageUnit} onValueChange={setAgeUnit}>
+                        <SelectTrigger className="w-32 bg-slate-700/50 border-slate-600 text-white">
+                          <SelectValue />
+                        </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="years">Years</SelectItem>
+                        <SelectItem value="months">Months</SelectItem>
+                        <SelectItem value="days">Days</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-              </div>
 
               <div>
                 <Label htmlFor="weight" className="text-slate-300">Weight (kg)</Label>
@@ -427,6 +473,15 @@ export default function PediaDoseCalculator() {
               </Button>
             </CardContent>
           </Card>
+          </div>
+          
+          {/* Favorites Panel */}
+          <div className="xl:col-span-1">
+            <FavoritesPanel 
+              onSelectDrug={handleSelectDrug}
+              currentSystem={selectedSystem}
+            />
+          </div>
         </div>
 
         {/* Quick Actions for Current System */}
@@ -437,21 +492,33 @@ export default function PediaDoseCalculator() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {availableDrugs.slice(0, 8).map((drug) => (
-                  <Button
-                    key={drug.id}
-                    variant="outline"
-                    className="bg-slate-700/50 border-slate-600 hover:bg-slate-600/50 hover:border-blue-400 transition-all duration-200 h-auto py-3"
-                    onClick={() => setQuickDrug(drug.id)}
-                  >
-                    <div className="flex flex-col items-center gap-1">
-                      <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-cyan-400 rounded-lg flex items-center justify-center text-white font-bold text-xs">
-                        {drug.name.charAt(0)}
+                    {availableDrugs.slice(0, 8).map((drug) => (
+                      <div key={drug.id} className="relative">
+                        <Button
+                          variant="outline"
+                          className="bg-slate-700/50 border-slate-600 hover:bg-slate-600/50 hover:border-blue-400 transition-all duration-200 h-auto py-3 w-full"
+                          onClick={() => setQuickDrug(drug.id)}
+                        >
+                          <div className="flex flex-col items-center gap-1">
+                            <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-cyan-400 rounded-lg flex items-center justify-center text-white font-bold text-xs">
+                              {drug.name.charAt(0)}
+                            </div>
+                            <span className="text-xs font-medium text-center">{drug.name}</span>
+                          </div>
+                        </Button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            toggleFavorite(drug.id)
+                          }}
+                          className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-slate-600 border-2 border-slate-700 flex items-center justify-center hover:bg-slate-500 transition-colors"
+                        >
+                          <span className={`text-xs ${isInFavorites(drug.id) ? 'text-yellow-400' : 'text-slate-400'}`}>
+                            {isInFavorites(drug.id) ? '★' : '☆'}
+                          </span>
+                        </button>
                       </div>
-                      <span className="text-xs font-medium text-center">{drug.name}</span>
-                    </div>
-                  </Button>
-                ))}
+                    ))}
               </div>
             </CardContent>
           </Card>
@@ -605,7 +672,7 @@ export default function PediaDoseCalculator() {
               <div className="w-6 h-6 text-blue-400">🏠</div>
               <span className="text-xs">Calculator</span>
             </Button>
-            <Button variant="ghost" className="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-300">
+            <Button variant="ghost" className="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-300" onClick={() => setShowFavorites(!showFavorites)}>
               <div className="w-6 h-6">⭐</div>
               <span className="text-xs">Favorites</span>
             </Button>
