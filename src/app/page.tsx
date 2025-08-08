@@ -7,27 +7,51 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { toast } from 'sonner'
 import PWAInstallPrompt from '@/components/pwa-install-prompt'
 import OfflineIndicator from '@/components/offline-indicator'
-
-interface DrugInfo {
-  name: string
-  dosePerKg: number
-  maxDailyDose: number
-  frequency: string
-  maxSingleDose: number
-  unit: string
-}
+import { medicalSystems } from '@/lib/comprehensive-drug-database'
 
 interface DrugOption {
-  key: string
+  id: string
   name: string
+  genericName: string
+  category: string
+  system: string
 }
 
 interface DosageResult {
-  singleDose: number
-  dailyDose: number
+  drug: string
+  genericName: string
+  system: string
+  category: string
+  dosageRange: {
+    min: string
+    max: string
+    unit: string
+  }
+  frequency: string
+  maxDailyDose: string
+  notes: string
+  patientWeight: number
+  patientAge: number
+  ageGroup: string
+  indications: string[]
+  contraindications: string[]
+  warnings: string[]
+  monitoring: string[]
+  renalAdjustment: {
+    adjustment: string
+    monitoring: string
+  }
+  hepaticAdjustment: {
+    adjustment: string
+    monitoring: string
+  }
+  references: string[]
+  nelsonPage: string
+  evidenceLevel: string
 }
 
 export default function PediaDoseCalculator() {
@@ -37,11 +61,12 @@ export default function PediaDoseCalculator() {
   const [height, setHeight] = useState<string>('')
   const [drugName, setDrugName] = useState<string>('')
   const [indication, setIndication] = useState<string>('')
+  const [selectedSystem, setSelectedSystem] = useState<string>('nervous')
   const [results, setResults] = useState<DosageResult | null>(null)
-  const [selectedDrug, setSelectedDrug] = useState<DrugInfo | null>(null)
-  const [showResults, setShowResults] = useState<boolean>(false)
   const [availableDrugs, setAvailableDrugs] = useState<DrugOption[]>([])
+  const [drugsBySystem, setDrugsBySystem] = useState<any[]>([])
   const [loading, setLoading] = useState<boolean>(true)
+  const [showResults, setShowResults] = useState<boolean>(false)
 
   useEffect(() => {
     // Fetch available drugs from API
@@ -51,7 +76,12 @@ export default function PediaDoseCalculator() {
         const result = await response.json()
         
         if (result.success) {
-          setAvailableDrugs(result.data.drugs)
+          setDrugsBySystem(result.data.drugsBySystem)
+          // Set initial drugs for selected system
+          const systemDrugs = result.data.drugsBySystem.find((s: any) => s.system.id === selectedSystem)
+          if (systemDrugs) {
+            setAvailableDrugs(systemDrugs.drugs)
+          }
         } else {
           toast.error('Failed to load drug database')
         }
@@ -66,16 +96,20 @@ export default function PediaDoseCalculator() {
     fetchDrugs()
   }, [])
 
-  const quickDrugs = [
-    { key: 'acetaminophen', label: 'Acetaminophen', icon: 'A' },
-    { key: 'ibuprofen', label: 'Ibuprofen', icon: 'I' },
-    { key: 'amoxicillin', label: 'Amoxicillin', icon: 'Am' },
-    { key: 'prednisolone', label: 'Prednisolone', icon: 'P' }
-  ]
+  useEffect(() => {
+    // Update available drugs when system changes
+    if (drugsBySystem.length > 0) {
+      const systemDrugs = drugsBySystem.find((s: any) => s.system.id === selectedSystem)
+      if (systemDrugs) {
+        setAvailableDrugs(systemDrugs.drugs)
+        setDrugName('') // Reset drug selection
+      }
+    }
+  }, [selectedSystem, drugsBySystem])
 
   const setQuickDrug = (drugKey: string) => {
     setDrugName(drugKey)
-    const drug = availableDrugs.find(d => d.key === drugKey)
+    const drug = availableDrugs.find(d => d.id === drugKey)
     if (drug) {
       toast.success(`Selected ${drug.name}`)
     }
@@ -116,18 +150,7 @@ export default function PediaDoseCalculator() {
       }
 
       const data = result.data
-      setResults({
-        singleDose: data.singleDose,
-        dailyDose: data.dailyDose
-      })
-      setSelectedDrug({
-        name: data.drug,
-        dosePerKg: data.dosePerKg,
-        maxDailyDose: 0, // Not needed for display
-        frequency: data.frequency,
-        maxSingleDose: 0, // Not needed for display
-        unit: data.unit
-      })
+      setResults(data)
       setShowResults(true)
       toast.success('Dosage calculated successfully')
     } catch (error) {
@@ -145,18 +168,21 @@ export default function PediaDoseCalculator() {
 • Add to home screen on iOS/Android
 
 🧮 How to Use:
-1. Enter patient's age, weight, and height
-2. Select medication and indication  
-3. Click "Calculate Dose" for results
-4. Use quick action buttons for common medications
+1. Select medical system from tabs
+2. Choose specific drug from the system
+3. Enter patient's age, weight, and height
+4. Click "Calculate Dose" for results
+5. View detailed information and warnings
 
 ⚠️ Important:
 • All doses are evidence-based pediatric guidelines
+• Based on Nelson Textbook of Pediatrics 21st Edition
 • Always verify doses before administration
 • Check for contraindications and allergies
 • Consult medical guidelines when in doubt
 
 🔧 Technical:
+• 15+ medical systems with 20+ drugs each
 • Offline capable with service worker
 • Responsive design for all devices
 • Real-time dosage calculations
@@ -215,6 +241,9 @@ export default function PediaDoseCalculator() {
                   <Badge variant="outline" className="text-xs border-green-500 text-green-300">
                     Offline Capable
                   </Badge>
+                  <Badge variant="outline" className="text-xs border-purple-500 text-purple-300">
+                    300+ Drugs
+                  </Badge>
                 </div>
               </div>
             </div>
@@ -235,26 +264,41 @@ export default function PediaDoseCalculator() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Quick Actions */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          {quickDrugs.map((drug) => (
-            <Button
-              key={drug.key}
-              variant="outline"
-              className="bg-slate-800/50 border-slate-600 hover:bg-slate-700/50 hover:border-blue-400 transition-all duration-200 h-auto py-4"
-              onClick={() => setQuickDrug(drug.key)}
-            >
-              <div className="flex flex-col items-center gap-2">
-                <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-cyan-400 rounded-lg flex items-center justify-center text-white font-bold text-sm">
-                  {drug.icon}
-                </div>
-                <span className="text-sm font-medium">{drug.label}</span>
-              </div>
-            </Button>
-          ))}
-        </div>
+        {/* Medical System Navigation */}
+        <Tabs value={selectedSystem} onValueChange={setSelectedSystem} className="mb-8">
+          <TabsList className="grid w-full grid-cols-5 lg:grid-cols-15 gap-2 bg-slate-800/50 p-2 rounded-lg">
+            {medicalSystems.map((system) => (
+              <TabsTrigger
+                key={system.id}
+                value={system.id}
+                className="flex flex-col items-center gap-1 p-2 data-[state=active]:bg-slate-700"
+              >
+                <span className="text-lg">{system.icon}</span>
+                <span className="text-xs font-medium">{system.name}</span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
 
-        {/* Calculator Grid */}
+        {/* System Description */}
+        <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm mb-6">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">
+                {medicalSystems.find(s => s.id === selectedSystem)?.icon}
+              </span>
+              <div>
+                <h3 className="text-lg font-semibold text-white">
+                  {medicalSystems.find(s => s.id === selectedSystem)?.name}
+                </h3>
+                <p className="text-sm text-slate-300">
+                  {medicalSystems.find(s => s.id === selectedSystem)?.description}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           {/* Patient Information Card */}
           <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm">
@@ -343,8 +387,11 @@ export default function PediaDoseCalculator() {
                   </SelectTrigger>
                   <SelectContent>
                     {availableDrugs.map((drug) => (
-                      <SelectItem key={drug.key} value={drug.key}>
-                        {drug.name}
+                      <SelectItem key={drug.id} value={drug.id}>
+                        <div>
+                          <div className="font-medium">{drug.name}</div>
+                          <div className="text-xs text-slate-400">{drug.genericName}</div>
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -363,6 +410,11 @@ export default function PediaDoseCalculator() {
                     <SelectItem value="infection">Infection</SelectItem>
                     <SelectItem value="inflammation">Inflammation</SelectItem>
                     <SelectItem value="allergy">Allergy</SelectItem>
+                    <SelectItem value="seizures">Seizures</SelectItem>
+                    <SelectItem value="hypertension">Hypertension</SelectItem>
+                    <SelectItem value="asthma">Asthma</SelectItem>
+                    <SelectItem value="diabetes">Diabetes</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -377,8 +429,36 @@ export default function PediaDoseCalculator() {
           </Card>
         </div>
 
+        {/* Quick Actions for Current System */}
+        {availableDrugs.length > 0 && (
+          <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm mb-6">
+            <CardHeader>
+              <CardTitle className="text-white">Quick Actions - {medicalSystems.find(s => s.id === selectedSystem)?.name}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {availableDrugs.slice(0, 8).map((drug) => (
+                  <Button
+                    key={drug.id}
+                    variant="outline"
+                    className="bg-slate-700/50 border-slate-600 hover:bg-slate-600/50 hover:border-blue-400 transition-all duration-200 h-auto py-3"
+                    onClick={() => setQuickDrug(drug.id)}
+                  >
+                    <div className="flex flex-col items-center gap-1">
+                      <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-cyan-400 rounded-lg flex items-center justify-center text-white font-bold text-xs">
+                        {drug.name.charAt(0)}
+                      </div>
+                      <span className="text-xs font-medium text-center">{drug.name}</span>
+                    </div>
+                  </Button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Results Card */}
-        {showResults && results && selectedDrug && (
+        {showResults && results && (
           <Card className="bg-gradient-to-br from-slate-800/50 to-slate-700/50 border-slate-600 backdrop-blur-sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-white">
@@ -387,42 +467,121 @@ export default function PediaDoseCalculator() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
                 <div className="bg-slate-700/30 rounded-lg p-4 border border-slate-600">
-                  <div className="text-slate-300 text-sm font-medium">Single Dose</div>
+                  <div className="text-slate-300 text-sm font-medium">Dosage Range</div>
                   <div className="text-2xl font-bold text-green-400">
-                    {results.singleDose.toFixed(1)} {selectedDrug.unit}
-                  </div>
-                </div>
-                <div className="bg-slate-700/30 rounded-lg p-4 border border-slate-600">
-                  <div className="text-slate-300 text-sm font-medium">Daily Maximum</div>
-                  <div className="text-2xl font-bold text-blue-400">
-                    {results.dailyDose.toFixed(1)} {selectedDrug.unit}
+                    {results.dosageRange.min} - {results.dosageRange.max} {results.dosageRange.unit}
                   </div>
                 </div>
                 <div className="bg-slate-700/30 rounded-lg p-4 border border-slate-600">
                   <div className="text-slate-300 text-sm font-medium">Frequency</div>
-                  <div className="text-xl font-bold text-cyan-400">
-                    {selectedDrug.frequency}
+                  <div className="text-xl font-bold text-blue-400">
+                    {results.frequency}
                   </div>
                 </div>
                 <div className="bg-slate-700/30 rounded-lg p-4 border border-slate-600">
-                  <div className="text-slate-300 text-sm font-medium">Weight-based dose</div>
+                  <div className="text-slate-300 text-sm font-medium">Max Daily Dose</div>
                   <div className="text-xl font-bold text-purple-400">
-                    {selectedDrug.dosePerKg} {selectedDrug.unit}/kg
+                    {results.maxDailyDose}
                   </div>
                 </div>
                 <div className="bg-slate-700/30 rounded-lg p-4 border border-slate-600">
-                  <div className="text-slate-300 text-sm font-medium">Patient weight</div>
+                  <div className="text-slate-300 text-sm font-medium">Patient Weight</div>
                   <div className="text-xl font-bold text-orange-400">
-                    {weight} kg
+                    {results.patientWeight} kg
                   </div>
                 </div>
                 <div className="bg-slate-700/30 rounded-lg p-4 border border-slate-600">
-                  <div className="text-slate-300 text-sm font-medium">Medication</div>
-                  <div className="text-lg font-bold text-white">
-                    {selectedDrug.name}
+                  <div className="text-slate-300 text-sm font-medium">Patient Age</div>
+                  <div className="text-xl font-bold text-cyan-400">
+                    {results.patientAge} {ageUnit}
                   </div>
+                </div>
+                <div className="bg-slate-700/30 rounded-lg p-4 border border-slate-600">
+                  <div className="text-slate-300 text-sm font-medium">Age Group</div>
+                  <div className="text-xl font-bold text-pink-400">
+                    {results.ageGroup}
+                  </div>
+                </div>
+              </div>
+
+              {/* Detailed Information */}
+              <div className="space-y-4">
+                <div>
+                  <h4 className="text-lg font-semibold text-white mb-2">Indications</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {results.indications.map((indication, index) => (
+                      <Badge key={index} variant="outline" className="border-green-500 text-green-300">
+                        {indication}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="text-lg font-semibold text-white mb-2">Warnings</h4>
+                  <div className="space-y-1">
+                    {results.warnings.map((warning, index) => (
+                      <div key={index} className="text-sm text-yellow-300">
+                        ⚠️ {warning}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="text-lg font-semibold text-white mb-2">Contraindications</h4>
+                  <div className="space-y-1">
+                    {results.contraindications.map((contraindication, index) => (
+                      <div key={index} className="text-sm text-red-300">
+                        ❌ {contraindication}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="text-lg font-semibold text-white mb-2">Monitoring</h4>
+                  <div className="space-y-1">
+                    {results.monitoring.map((item, index) => (
+                      <div key={index} className="text-sm text-blue-300">
+                        🔍 {item}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="text-lg font-semibold text-white mb-2">Dosage Adjustments</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-slate-700/30 rounded-lg p-3 border border-slate-600">
+                      <div className="font-medium text-purple-300 mb-1">Renal Impairment</div>
+                      <div className="text-sm text-slate-300">{results.renalAdjustment.adjustment}</div>
+                      <div className="text-xs text-purple-200 mt-1">{results.renalAdjustment.monitoring}</div>
+                    </div>
+                    <div className="bg-slate-700/30 rounded-lg p-3 border border-slate-600">
+                      <div className="font-medium text-orange-300 mb-1">Hepatic Impairment</div>
+                      <div className="text-sm text-slate-300">{results.hepaticAdjustment.adjustment}</div>
+                      <div className="text-xs text-orange-200 mt-1">{results.hepaticAdjustment.monitoring}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="text-lg font-semibold text-white mb-2">Notes</h4>
+                  <div className="text-sm text-slate-300 bg-slate-700/30 rounded-lg p-3 border border-slate-600">
+                    {results.notes}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-4 border-t border-slate-600">
+                  <div className="text-sm text-slate-400">
+                    📚 Nelson Textbook of Pediatrics 21st Edition (Page {results.nelsonPage})
+                  </div>
+                  <Badge variant="outline" className="border-green-500 text-green-300">
+                    Evidence Level {results.evidenceLevel}
+                  </Badge>
                 </div>
               </div>
             </CardContent>
