@@ -46,7 +46,7 @@ export default function PWAInstallPrompt() {
       setIsInstalled(true)
       setIsInstallable(false)
       setDeferredPrompt(null)
-      toast.success('Pedia-Dose has been installed successfully!')
+      toast.success('Paedia-Dose has been installed successfully!')
     }
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
@@ -80,7 +80,7 @@ export default function PWAInstallPrompt() {
   }
 
   const handleIOSInstallInstructions = () => {
-    toast.info(`To install Pedia-Dose on iOS:
+    toast.info(`To install Paedia-Dose on iOS:
 1. Tap the Share button in Safari
 2. Scroll down and tap "Add to Home Screen"
 3. Tap "Add" to confirm`)
@@ -88,14 +88,14 @@ export default function PWAInstallPrompt() {
 
   if (isInstalled) {
     return (
-      <Card className="bg-green-900/20 border-green-600/50 backdrop-blur-sm">
+      <Card className="bg-green-50 border-green-200 mx-4 mt-4">
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-              <span className="text-green-300 font-medium">App Installed</span>
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              <span className="text-green-700 font-medium">App Installed</span>
             </div>
-            <Badge variant="outline" className="border-green-600 text-green-300">
+            <Badge variant="outline" className="border-green-500 text-green-700">
               PWA Mode
             </Badge>
           </div>
@@ -106,17 +106,17 @@ export default function PWAInstallPrompt() {
 
   if (isIOS) {
     return (
-      <Card className="bg-blue-900/20 border-blue-600/50 backdrop-blur-sm">
+      <Card className="bg-blue-50 border-blue-200 mx-4 mt-4">
         <CardHeader className="pb-3">
-          <CardTitle className="text-blue-300 text-sm flex items-center gap-2">
-            📱 Install Pedia-Dose
+          <CardTitle className="text-blue-700 text-sm flex items-center gap-2">
+            📱 Install Paedia-Dose
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-0">
           <Button 
             onClick={handleIOSInstallInstructions}
             variant="outline" 
-            className="w-full border-blue-600 text-blue-300 hover:bg-blue-800/50"
+            className="w-full border-blue-500 text-blue-700 hover:bg-blue-100"
           >
             Show Install Instructions
           </Button>
@@ -127,16 +127,16 @@ export default function PWAInstallPrompt() {
 
   if (isInstallable && deferredPrompt) {
     return (
-      <Card className="bg-blue-900/20 border-blue-600/50 backdrop-blur-sm">
+      <Card className="bg-blue-50 border-blue-200 mx-4 mt-4">
         <CardHeader className="pb-3">
-          <CardTitle className="text-blue-300 text-sm flex items-center gap-2">
-            📲 Install Pedia-Dose
+          <CardTitle className="text-blue-700 text-sm flex items-center gap-2">
+            📲 Install Paedia-Dose
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-0">
           <Button 
             onClick={handleInstallClick}
-            className="w-full bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white"
+            className="w-full bg-blue-500 hover:bg-blue-600 text-white"
           >
             Install App
           </Button>

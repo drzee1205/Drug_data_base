@@ -14,28 +14,28 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Pedia-Dose - Pediatric Dosage Calculator",
+  title: "Paedia-Dose - Pediatric Dosage Calculator",
   description: "A modern pediatric dosage calculator for healthcare professionals. Calculate accurate medication doses for children based on age, weight, and evidence-based guidelines.",
-  keywords: ["Pedia-Dose", "pediatric", "dosage calculator", "medical", "children", "healthcare", "medication", "PWA"],
-  authors: [{ name: "Pedia-Dose Team" }],
+  keywords: ["Paedia-Dose", "pediatric", "dosage calculator", "medical", "children", "healthcare", "medication", "PWA"],
+  authors: [{ name: "Paedia-Dose Team" }],
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent",
-    title: "Pedia-Dose",
+    statusBarStyle: "default",
+    title: "Paedia-Dose",
   },
   formatDetection: {
     telephone: false,
   },
   openGraph: {
-    title: "Pedia-Dose - Pediatric Dosage Calculator",
+    title: "Paedia-Dose - Pediatric Dosage Calculator",
     description: "Calculate accurate medication doses for children with evidence-based guidelines",
     type: "website",
-    siteName: "Pedia-Dose",
+    siteName: "Paedia-Dose",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Pedia-Dose - Pediatric Dosage Calculator",
+    title: "Paedia-Dose - Pediatric Dosage Calculator",
     description: "Calculate accurate medication doses for children with evidence-based guidelines",
   },
   icons: {
@@ -50,12 +50,12 @@ export const metadata: Metadata = {
   },
   other: {
     "mobile-web-app-capable": "yes",
-    "application-name": "Pedia-Dose",
+    "application-name": "Paedia-Dose",
     "apple-mobile-web-app-capable": "yes",
-    "apple-mobile-web-app-status-bar-style": "black-translucent",
-    "apple-mobile-web-app-title": "Pedia-Dose",
+    "apple-mobile-web-app-status-bar-style": "default",
+    "apple-mobile-web-app-title": "Paedia-Dose",
     "msapplication-config": "/browserconfig.xml",
-    "msapplication-TileColor": "#0093ff",
+    "msapplication-TileColor": "#3b82f6",
     "msapplication-tap-highlight": "no",
   },
 };
@@ -65,8 +65,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 5,
   userScalable: true,
-  themeColor: "#0093ff",
-  colorScheme: "dark",
+  themeColor: "#3b82f6",
+  colorScheme: "light",
 };
 
 export default function RootLayout({
@@ -77,13 +77,13 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <meta name="theme-color" content="#0093ff" />
+        <meta name="theme-color" content="#3b82f6" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <link rel="apple-touch-icon" href="/icon-192.png" />
         <link rel="apple-touch-icon" sizes="512x512" href="/icon-512.png" />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-white text-gray-900 ios-safe-area-top ios-safe-area-bottom`}
       >
         {children}
         <Toaster />
