@@ -1,12 +1,12 @@
-const CACHE_NAME = 'pedia-dose-v1';
+const CACHE_NAME = 'paedia-dose-v1';
 const urlsToCache = [
   '/',
-  '/api/dosage',
   '/manifest.json',
   '/logo.png',
   '/icon.png',
   '/icon-192.png',
-  '/icon-512.png'
+  '/icon-512.png',
+  '/offline.html'
 ];
 
 // Install event - cache resources

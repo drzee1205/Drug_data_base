@@ -37,20 +37,20 @@ export default function OfflineIndicator() {
   }
 
   return (
-    <Card className="fixed top-20 left-4 right-4 z-50 bg-orange-900/90 border-orange-600 backdrop-blur-sm shadow-lg">
+    <Card className="fixed top-20 left-4 right-4 z-50 bg-orange-50 border-orange-200 shadow-lg">
       <CardContent className="p-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse"></div>
-            <span className="text-orange-200 text-sm font-medium">
+            <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
+            <span className="text-orange-700 text-sm font-medium">
               You're offline
             </span>
           </div>
-          <Badge variant="outline" className="border-orange-500 text-orange-200 text-xs">
+          <Badge variant="outline" className="border-orange-500 text-orange-700 text-xs">
             Limited Functionality
           </Badge>
         </div>
-        <p className="text-orange-300 text-xs mt-1">
+        <p className="text-orange-600 text-xs mt-1">
           Some features may be unavailable. Calculations will use cached data.
         </p>
       </CardContent>
